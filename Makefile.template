@@ -1,0 +1,103 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: aykrifa <aykrifa@student.42.fr>            +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2025/10/27 10:05:17 by aykrifa           #+#    #+#              #
+#                                                                              #
+# **************************************************************************** #
+
+# 		12345678ul
+F_CPU = 16000000UL
+# Pour situer le mcu avec avrdude
+PORT = /dev/ttyUSB0
+# Pour avrdude demande par le sujet
+PROGRAMMER-ID = arduino
+# Pour avrdude demande par le sujet
+BAUDRATE = 115200
+# nom de la puce pour avr-gcc (pour les maccros) et avrdude
+MCU = atmega328p
+#
+################################################################################
+
+# Lib utilisee par avr-gcc Pour l'analyseur syntaxique
+LIB = $(LIBPATH)/myavrlib.a
+#
+CC = avr-gcc
+#
+LIBPATH = $(abspath ../myavrlib)
+#
+INCLUDE = -I/usr/lib/avr/include -I$(LIBPATH)
+#
+BUILD_DIR   = obj
+OBJ         = $(SRC:%.c=$(BUILD_DIR)/%.o)
+#
+NAME = main.bin
+#
+SRC = main.c \
+
+CFLAGS = -Wall -Wextra -Werror -Os -DF_CPU=$(F_CPU) -mmcu=$(MCU)
+################################################################################
+
+all: hex flash
+.PHONY: all
+
+hex: myavrlib $(NAME)
+	avr-objcopy -O ihex \
+		-R .eeprom \
+		$(NAME) main.hex
+.PHONY: hex
+
+myavrlib:
+	make -C $(LIBPATH)
+.PHONY: myavrlib
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) \
+		$(CFLAGS) \
+		-o $@ \
+		$< \
+		$(INCLUDE) \
+		-c
+
+$(NAME): $(OBJ)
+	$(CC) \
+		$(CFLAGS) \
+		-o $@ \
+		$(OBJ) \
+		$(INCLUDE) \
+		$(LIB)
+
+flash:
+	avrdude \
+		-c $(PROGRAMMER-ID) \
+		-p $(MCU) \
+		-P $(PORT) \
+		-b $(BAUDRATE) \
+		-U flash:w:main.hex
+.PHONY: flash
+
+show : all
+	screen $(PORT) $(BAUDRATE)
+.PHONY: show
+
+clean:
+	rm -rf $(NAME)
+	rm -rf $(BUILD_DIR)
+	rm -rf *.hex
+	rm -rf .cache
+	rm -rf compile_commands.json
+	rm -rf tags
+.PHONY: clean
+
+fclean: clean
+	make fclean -C $(LIBPATH)
+.PHONY: fclean
+
+re: clean all
+.PHONY: re
